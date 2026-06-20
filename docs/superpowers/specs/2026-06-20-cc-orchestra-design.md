@@ -46,9 +46,10 @@ on disk are not browsable as a fleet.
 **Go + [Bubble Tea](https://github.com/charmbracelet/bubbletea).**
 
 Rationale: fast cold start, single-binary distribution, compounds prior Go learning
-(TeslaMonitor), agentic-dev friendly. Bubble Tea's `list` / `textinput` /
-`viewport` / `key` widgets cover the UI needs, and `tea.ExecProcess` is a native
-primitive for the hand-off mechanic (§6).
+(TeslaMonitor), agentic-dev friendly. `tea.ExecProcess` is a native primitive for the
+hand-off mechanic (§6); `bubbles/textinput` + `bubbles/key` + `lipgloss` cover filter
+input, keymap, and styling. The session list is hand-rolled (slice + cursor) for full
+control and easy testing.
 
 ## 4. Architecture — Data Sources & Unified Model
 
@@ -57,12 +58,14 @@ Three data sources are merged into one `Session` model keyed by **UUID**.
 ### 4.1 The three sources
 
 1. **Transcripts** — `~/.claude/projects/{encoded-cwd}/{uuid}.jsonl`. Durable truth.
-   - For the **list**: read the first JSONL line per file for `cwd` + first user
-     message; take last-active from file `mtime` (via `stat`).
+   - For the **list**: `cwd` + first user message from the transcript head (scan past
+     `mode`/meta lines to the first real `user` message — see Appendix); last-active
+     from file `mtime` (via `stat`).
    - For the **preview**: lazy-load the rest (model, token usage, last user/assistant
      snippets) on selection, debounced ~150ms.
-2. **Live agents** — `claude agents --json`. Currently-running sessions (PID, status,
-   optional name). Polled every 3s and on `r`.
+2. **Live agents** — `claude agents --json`. Tells us *which* sessions are running.
+   Verified element shape: `{pid, cwd, kind, startedAt (epoch ms), sessionId}` — there
+   is **no** status / name / `updated_at` field. Polled every 3s and on `r`.
 3. **Registry** — `~/.local/state/cc-orchestra/registry.json`. Our own metadata
    (custom name, pinned, archived, notes). Atomic writes. See §7.
 
@@ -72,25 +75,30 @@ Keyed by UUID; the fleet is the **union** of transcripts and live agents, enrich
 by the registry.
 
 ```go
+// Status is derived, not read from the CLI: "running" means the UUID appears in
+// `claude agents --json`; busy-vs-idle is inferred from transcript mtime freshness.
 type Status int
+
 const (
-    StatusUnknown    Status = iota
-    StatusBusy              // live: actively working
-    StatusWaiting           // live: awaiting user input
-    StatusIdle              // live: running, idle
-    StatusNotRunning        // transcript exists, no live agent
+    StatusNotRunning Status = iota // not present in `claude agents --json`
+    StatusIdle                     // running, transcript mtime older than BusyThreshold
+    StatusBusy                     // running, transcript modified within BusyThreshold
 )
+
+// BusyThreshold separates "busy" from "idle" for running sessions.
+const BusyThreshold = 10 * time.Second
 
 type Session struct {
     UUID         string
     Cwd          string    // authoritative, from transcript `cwd` field (§4.4)
     Project      string    // basename(Cwd)
     GitBranch    string    // from transcript, optional
-    FirstUserMsg string    // first user message, for list + fuzzy filter
+    FirstUserMsg string    // first real user message, for list + fuzzy filter
 
-    Status       Status    // from live agent; StatusNotRunning if none
-    PID          int       // from live agent, optional
-    LastActive   time.Time // live updated_at → transcript mtime
+    Status       Status    // derived: running (agents --json) + mtime freshness
+    PID          int       // from `claude agents --json` when running, else 0
+    StartedAt    time.Time // from agents --json startedAt (epoch ms), when running
+    LastActive   time.Time // transcript mtime (the live source has no updated_at)
 
     // Lazy preview fields (loaded on selection):
     Model        string
@@ -115,8 +123,11 @@ type Session struct {
 
 - **Name (display):** `registry.DisplayName` → transcript first-user-message
   (truncated) → `basename(Cwd)`.
-- **Status:** live agent status if present, else `StatusNotRunning`.
-- **Last-active:** live `updated_at` if present, else transcript file `mtime`.
+- **Status:** if the UUID is in `claude agents --json`, it's running — then
+  `StatusBusy` when the transcript `mtime` is within `BusyThreshold` (~10s), else
+  `StatusIdle`; if not listed, `StatusNotRunning`.
+- **Last-active:** transcript file `mtime` (the live source exposes no `updated_at`;
+  `startedAt` is session-start, not last activity).
 - A UUID present **only** in live but with no transcript yet still appears (brand-new
   session); a UUID present **only** in the registry but with no transcript and no live
   agent is treated as orphaned (kept, eligible for a future `gc`).
@@ -128,13 +139,14 @@ type Session struct {
   because path segments can themselves contain `-`. Example: `/home/user/cc-orchestra`
   encodes to `-home-user-cc-orchestra`; naive `-`→`/` decoding would mangle it into
   `/home/user/cc/orchestra`. The decoded dir name is therefore only a last-resort
-  fallback when the first line can't be read.
-- The first JSONL line also carries `gitBranch`, `isSidechain`, and `entrypoint`.
-  **Filter out `isSidechain: true`** transcripts (sub-agent sidechains, not
-  top-level sessions).
+  fallback when no line can be read.
+- The **first real user message** is the first `type:"user"` line with `isMeta != true`,
+  `isSidechain == false`, and a string `message.content` (skip `user` lines that carry
+  `toolUseResult` — those are tool results, not prompts). See Appendix for the schema.
+- **Filter out `isSidechain: true`** transcripts (sub-agent sidechains, not top-level
+  sessions).
 - Ignore the `{uuid}.ccr-tip.json` sidecar files.
-- Lines are heterogeneous (user/assistant messages, tool calls, `deferred_tools_delta`
-  attachments, etc.). Parse line-by-line, best-effort; skip malformed lines.
+- Lines are heterogeneous; parse line-by-line, best-effort; skip malformed lines.
 
 ## 5. TUI Shape
 
@@ -149,10 +161,10 @@ type Session struct {
 ```
 [★] [●] name                    project            status-text        age
  │   │   │                       │                  │                  └ relative last-active
- │   │   │                       │                  └ e.g. "busy", "waiting", "idle", "—"
+ │   │   │                       │                  └ e.g. "busy", "idle", "—"
  │   │   │                       └ basename(cwd)
  │   │   └ resolved display name
- │   └ status glyph: ● busy/waiting · ◐ idle · ○ not-running
+ │   └ status glyph: ● busy · ◐ idle · ○ not-running
  └ pin indicator
 ```
 
@@ -163,8 +175,8 @@ snippet. Populated by the debounced (~150ms) lazy load described in §4.1.
 
 ### Sort & filter
 
-- **Sort tiers:** pinned → running → not-running; within "running", order
-  busy → waiting → idle; **last-active descending within each tier.**
+- **Sort tiers:** pinned → busy → idle → not-running; **last-active descending within
+  each tier.**
 - **Archived** sessions are hidden unless `A` toggles them on.
 - **Filter (`/`):** fuzzy match over `name | project | first-user-message`.
 
@@ -237,8 +249,7 @@ out of scope and documented as such.
 ## 7. Registry Schema
 
 **Path:** `~/.local/state/cc-orchestra/registry.json` (honor `$XDG_STATE_HOME`;
-fall back to `~/.local/state`). This supersedes the `ccw-orchestra` path mentioned in
-the original §1 brainstorm.
+fall back to `~/.local/state`).
 
 ```json
 {
@@ -268,7 +279,7 @@ the original §1 brainstorm.
 
 ```
 cc-orchestra/
-├── go.mod                       # module github.com/jfoo1984/cc-orchestra
+├── go.mod                       # module github.com/jfoo1984/cc-orchestra (go 1.24)
 ├── go.sum
 ├── Makefile                     # build / test / install / lint / run
 ├── .golangci.yml
@@ -283,10 +294,10 @@ cc-orchestra/
     ├── session/                 # unified Session model + merge rules (§4.2–4.3)
     ├── sources/
     │   ├── transcripts.go       # scan ~/.claude/projects, parse JSONL (§4.4)
-    │   ├── agents.go            # `claude agents --json` poll + parse
-    │   └── paths.go             # project-dir encode/decode (fallback only)
+    │   ├── agents.go            # `claude agents --json` runner + parse
+    │   └── paths.go             # projects root + project-dir decode (fallback)
     ├── registry/                # atomic load/save (§7)
-    └── tui/                     # model · update · view · keys · handoff.go
+    └── tui/                     # model · update · view · keys · handoff
 ```
 
 ## 9. Error Handling
@@ -303,20 +314,20 @@ cc-orchestra/
 ## 10. Testing Strategy
 
 - **Pure logic, table-driven unit tests:**
-  - `paths`: dir encode/decode + the ambiguity fallback.
-  - `transcripts`: first-user-message extraction, `cwd`/`gitBranch`/`isSidechain`
-    parsing, mtime handling, malformed-line skipping — driven by `testdata/*.jsonl`
-    fixtures.
-  - `agents`: parse canned `claude agents --json` output (fixture).
+  - `sources/paths`: dir decode fallback + basename.
+  - `sources/transcripts`: first-user-message extraction (skipping meta/tool-result
+    lines), `cwd`/`gitBranch`/`isSidechain` parsing, mtime, malformed-line skipping —
+    driven by `testdata/*.jsonl` fixtures.
+  - `sources/agents`: parse canned `claude agents --json` output via a fake runner.
   - `registry`: atomic round-trip, corrupt-file recovery.
-  - `session`: merge precedence (registry ∪ transcript ∪ live), sort, fuzzy filter.
+  - `session`: merge precedence (registry ∪ transcript ∪ live), status derivation
+    (busy/idle via `BusyThreshold`), sort, fuzzy filter.
 - **Seams for isolation (no real side effects in tests):**
-  - Command execution (`claude agents --json`) behind a function/interface var so
-    tests inject canned JSON instead of shelling out.
+  - The `claude agents --json` runner is a function/interface var so tests inject canned
+    JSON instead of shelling out.
   - `Handoff` behind its interface so tests assert the selected UUID without launching
     Claude.
-- **TUI:** drive `Update` with synthetic messages and assert model state; optional
-  golden-file coverage via `teatest` later.
+- **TUI:** drive `Update` with synthetic messages and assert model state.
 
 ## 11. Repo Housekeeping Decisions
 
@@ -333,6 +344,7 @@ cc-orchestra/
 
 - tmux parallel hand-off (`TmuxHandoff`).
 - Cloud session listing via the Managed Agents Sessions API.
+- A reliable "waiting for input" status (not locally detectable today).
 - Registry `gc` for orphaned entries.
 - goreleaser + brew distribution.
 
@@ -345,10 +357,16 @@ Confirmed against the installed `claude` CLI (v2.1.181) and real on-disk transcr
 - **Resume:** `-r, --resume [value]` — "Resume a conversation by session ID." So
   `claude --resume <uuid>` is correct.
 - **Live agents:** `claude agents --json` — "Print active sessions as a JSON array and
-  exit … does not require a TTY." Flags: `--all` (include completed sessions),
-  `--cwd <path>` (filter by directory).
+  exit … does not require a TTY." Each element: `{pid, cwd, kind, startedAt (epoch ms),
+  sessionId}` — **no status/name/updated_at**. Flags: `--all` (include completed),
+  `--cwd <path>` (filter).
 - **Transcript path:** `~/.claude/projects/{encoded-cwd}/{uuid}.jsonl`, e.g.
   `~/.claude/projects/-home-user-cc-orchestra/<uuid>.jsonl`.
-- **Transcript first-line fields:** `cwd`, `gitBranch`, `isSidechain`, `entrypoint`,
-  `message.content`. A `{uuid}.ccr-tip.json` sidecar sits alongside each transcript
-  and is ignored.
+- **Transcript line schema (verified):** newline-delimited JSON; line `type` ∈
+  {`user`, `assistant`, `attachment`, `queue-operation`, `last-prompt`, `mode`}. Every
+  message line carries `uuid`, `parentUuid`, `sessionId`, `timestamp`, `cwd`,
+  `gitBranch`, `isSidechain`. The **first real user message** = first `type:"user"`
+  line with `isMeta != true`, `isSidechain == false`, and a string `message.content`
+  (skip `user` lines that carry `toolUseResult`). Assistant lines hold the Anthropic
+  message in `message` (with `model` and `usage` for the preview). A
+  `{uuid}.ccr-tip.json` sidecar sits alongside each transcript; ignore it.
