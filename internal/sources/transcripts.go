@@ -71,7 +71,7 @@ func parseTranscript(path string) (*session.TranscriptInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	info := &session.TranscriptInfo{Path: path, LastActive: fi.ModTime()}
 	sc := bufio.NewScanner(f)
