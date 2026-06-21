@@ -284,9 +284,65 @@ func (m Model) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m Model) startRename() (tea.Model, tea.Cmd)            { return m, nil } // Task 10
-func (m Model) updateRename(tea.KeyMsg) (tea.Model, tea.Cmd) { return m, nil } // Task 10
-func (m Model) togglePin() (tea.Model, tea.Cmd)              { return m, nil } // Task 10
-func (m Model) toggleArchive() (tea.Model, tea.Cmd)          { return m, nil } // Task 10
-func (m Model) doHandoff() (tea.Model, tea.Cmd)              { return m, nil } // Task 11
-func (m Model) openEditor() (tea.Model, tea.Cmd)             { return m, nil } // Task 11
+func (m Model) togglePin() (tea.Model, tea.Cmd) {
+	s, ok := m.selected()
+	if !ok || m.reg == nil {
+		return m, nil
+	}
+	if err := m.reg.Update(s.UUID, func(e *registry.Entry) { e.Pinned = !e.Pinned }); err != nil {
+		m.banner = "save failed: " + err.Error()
+		return m, nil
+	}
+	return m, m.refreshCmd()
+}
+
+func (m Model) toggleArchive() (tea.Model, tea.Cmd) {
+	s, ok := m.selected()
+	if !ok || m.reg == nil {
+		return m, nil
+	}
+	if err := m.reg.Update(s.UUID, func(e *registry.Entry) { e.Archived = !e.Archived }); err != nil {
+		m.banner = "save failed: " + err.Error()
+		return m, nil
+	}
+	return m, m.refreshCmd()
+}
+
+func (m Model) startRename() (tea.Model, tea.Cmd) {
+	s, ok := m.selected()
+	if !ok {
+		return m, nil
+	}
+	m.renaming = true
+	m.renameInput.SetValue("")
+	m.renameInput.Placeholder = s.Name()
+	cmd := m.renameInput.Focus()
+	return m, cmd
+}
+
+func (m Model) updateRename(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.renaming = false
+		m.renameInput.Blur()
+		return m, nil
+	case "enter":
+		m.renaming = false
+		m.renameInput.Blur()
+		s, ok := m.selected()
+		if !ok || m.reg == nil {
+			return m, nil
+		}
+		name := strings.TrimSpace(m.renameInput.Value())
+		if err := m.reg.Update(s.UUID, func(e *registry.Entry) { e.Name = name }); err != nil {
+			m.banner = "save failed: " + err.Error()
+			return m, nil
+		}
+		return m, m.refreshCmd()
+	}
+	var cmd tea.Cmd
+	m.renameInput, cmd = m.renameInput.Update(msg)
+	return m, cmd
+}
+func (m Model) doHandoff() (tea.Model, tea.Cmd)  { return m, nil } // Task 11
+func (m Model) openEditor() (tea.Model, tea.Cmd) { return m, nil } // Task 11

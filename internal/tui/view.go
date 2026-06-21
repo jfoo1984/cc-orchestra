@@ -40,7 +40,10 @@ func (m Model) View() string {
 
 func (m Model) renderHeader() string {
 	left := headerStyle.Render("cc-orchestra")
-	if m.filtering {
+	switch {
+	case m.renaming:
+		return left + "  rename: " + m.renameInput.View()
+	case m.filtering:
 		return left + "  /" + m.filterInput.View()
 	}
 	count := dimStyle.Render(fmt.Sprintf("%d sessions", len(m.visible)))
