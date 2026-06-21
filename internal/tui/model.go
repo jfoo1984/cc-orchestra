@@ -111,6 +111,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.previewUUID = msg.uuid
 		}
 		return m, nil
+	case handoffDoneMsg:
+		m.banner = ""
+		if msg.err != nil {
+			m.banner = "session error: " + msg.err.Error()
+		}
+		return m, m.refreshCmd()
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -344,5 +350,18 @@ func (m Model) updateRename(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.renameInput, cmd = m.renameInput.Update(msg)
 	return m, cmd
 }
-func (m Model) doHandoff() (tea.Model, tea.Cmd)  { return m, nil } // Task 11
-func (m Model) openEditor() (tea.Model, tea.Cmd) { return m, nil } // Task 11
+func (m Model) doHandoff() (tea.Model, tea.Cmd) {
+	s, ok := m.selected()
+	if !ok || m.handoff == nil {
+		return m, nil
+	}
+	return m, m.handoff.Run(s.UUID)
+}
+
+func (m Model) openEditor() (tea.Model, tea.Cmd) {
+	s, ok := m.selected()
+	if !ok || s.TranscriptPath == "" {
+		return m, nil
+	}
+	return m, editorCmd(s.TranscriptPath)
+}
