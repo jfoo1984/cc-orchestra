@@ -1,104 +1,139 @@
 {
   "planPath": "docs/superpowers/plans/2026-06-20-cc-orchestra.md",
-  "lastUpdated": "2026-06-20T00:00:00Z",
+  "lastUpdated": "2026-06-21T05:50:49Z",
   "note": "Native task tools are unavailable in this environment; this file is the cross-session resume record. Full step-by-step code lives in the plan .md. Resume via /superpowers-extended-cc:executing-plans docs/superpowers/plans/2026-06-20-cc-orchestra.md",
   "tasks": [
     {
       "id": 0,
       "subject": "Task 0: Project scaffold",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** Building, vetted Go module skeleton with CI and lint config.\n\n**Files:** go.mod, Makefile, .golangci.yml, .github/workflows/ci.yml, README.md, cmd/cc-orchestra/main.go\n\n**Verify:** `go build ./... && go vet ./...` exits 0.\n\n```json:metadata\n{\"files\":[\"go.mod\",\"Makefile\",\".golangci.yml\",\".github/workflows/ci.yml\",\"README.md\",\"cmd/cc-orchestra/main.go\"],\"verifyCommand\":\"go build ./... && go vet ./...\",\"acceptanceCriteria\":[\"go build ./... succeeds\",\"go vet ./... clean\",\"binary prints cc-orchestra <version>\"],\"modelTier\":\"mechanical\"}\n```"
     },
     {
       "id": 1,
       "subject": "Task 1: Session core types and formatting",
-      "status": "pending",
-      "blockedBy": [0],
-      "description": "**Goal:** session.Session value type + display helpers (Name, Glyph, StatusText, Age, Basename, sanitize/truncate).\n\n**Files:** internal/session/session.go, internal/session/session_test.go\n\n**Verify:** `go test ./internal/session/ -run 'TestName|TestGlyph|TestStatusText|TestAge|TestSanitize' -v`\n\n```json:metadata\n{\"files\":[\"internal/session/session.go\",\"internal/session/session_test.go\"],\"verifyCommand\":\"go test ./internal/session/ -v\",\"acceptanceCriteria\":[\"Status ordered NotRunning<Idle<Busy\",\"Name resolves display→firstmsg→project→shortUUID\",\"Glyph/StatusText/Age correct\"],\"modelTier\":\"standard\"}\n```"
+      "status": "completed",
+      "blockedBy": [
+        0
+      ],
+      "description": "**Goal:** session.Session value type + display helpers (Name, Glyph, StatusText, Age, Basename, sanitize/truncate).\n\n**Files:** internal/session/session.go, internal/session/session_test.go\n\n**Verify:** `go test ./internal/session/ -run 'TestName|TestGlyph|TestStatusText|TestAge|TestSanitize' -v`\n\n```json:metadata\n{\"files\":[\"internal/session/session.go\",\"internal/session/session_test.go\"],\"verifyCommand\":\"go test ./internal/session/ -v\",\"acceptanceCriteria\":[\"Status ordered NotRunning<Idle<Busy\",\"Name resolves display\u2192firstmsg\u2192project\u2192shortUUID\",\"Glyph/StatusText/Age correct\"],\"modelTier\":\"standard\"}\n```"
     },
     {
       "id": 2,
       "subject": "Task 2: Merge and sort",
-      "status": "pending",
-      "blockedBy": [1],
+      "status": "completed",
+      "blockedBy": [
+        1
+      ],
       "description": "**Goal:** session.Merge unifies transcripts + live agents + registry meta into a sorted []Session; derives busy/idle from mtime freshness (BusyThreshold).\n\n**Files:** internal/session/merge.go, internal/session/merge_test.go\n\n**Verify:** `go test ./internal/session/ -run TestMerge -v`\n\n```json:metadata\n{\"files\":[\"internal/session/merge.go\",\"internal/session/merge_test.go\"],\"verifyCommand\":\"go test ./internal/session/ -run TestMerge -v\",\"acceptanceCriteria\":[\"transcript-only=NotRunning\",\"running+fresh mtime=Busy, stale=Idle\",\"live-only takes cwd from agent\",\"meta applies pin/archive/name\",\"sort pinned>busy>idle>notrunning then lastactive desc\",\"registry-only orphans not surfaced\"],\"modelTier\":\"standard\"}\n```"
     },
     {
       "id": 3,
       "subject": "Task 3: Source paths",
       "status": "pending",
-      "blockedBy": [0],
+      "blockedBy": [
+        0
+      ],
       "description": "**Goal:** ProjectsRoot (honors CLAUDE_CONFIG_DIR else ~/.claude/projects) + DecodeProjectDir fallback.\n\n**Files:** internal/sources/paths.go, internal/sources/paths_test.go\n\n**Verify:** `go test ./internal/sources/ -run TestPaths -v`\n\n```json:metadata\n{\"files\":[\"internal/sources/paths.go\",\"internal/sources/paths_test.go\"],\"verifyCommand\":\"go test ./internal/sources/ -run TestPaths -v\",\"acceptanceCriteria\":[\"ProjectsRoot honors CLAUDE_CONFIG_DIR\",\"DecodeProjectDir reconstructs lossy path\"],\"modelTier\":\"mechanical\"}\n```"
     },
     {
       "id": 4,
       "subject": "Task 4: Transcript scanning",
       "status": "pending",
-      "blockedBy": [2, 3],
-      "description": "**Goal:** Scan projects root → one TranscriptInfo per non-sidechain transcript (cwd, gitBranch, first real user message, mtime, uuid).\n\n**Files:** internal/sources/transcripts.go, internal/sources/transcripts_test.go\n\n**Verify:** `go test ./internal/sources/ -run TestScan -v`\n\n```json:metadata\n{\"files\":[\"internal/sources/transcripts.go\",\"internal/sources/transcripts_test.go\"],\"verifyCommand\":\"go test ./internal/sources/ -run TestScan -v\",\"acceptanceCriteria\":[\"missing root returns (nil,nil)\",\"skips isSidechain and non-jsonl\",\"first user msg skips meta/tool-result lines\",\"cwd/gitBranch/mtime/uuid populated\",\"malformed lines skipped\"],\"modelTier\":\"standard\"}\n```"
+      "blockedBy": [
+        2,
+        3
+      ],
+      "description": "**Goal:** Scan projects root \u2192 one TranscriptInfo per non-sidechain transcript (cwd, gitBranch, first real user message, mtime, uuid).\n\n**Files:** internal/sources/transcripts.go, internal/sources/transcripts_test.go\n\n**Verify:** `go test ./internal/sources/ -run TestScan -v`\n\n```json:metadata\n{\"files\":[\"internal/sources/transcripts.go\",\"internal/sources/transcripts_test.go\"],\"verifyCommand\":\"go test ./internal/sources/ -run TestScan -v\",\"acceptanceCriteria\":[\"missing root returns (nil,nil)\",\"skips isSidechain and non-jsonl\",\"first user msg skips meta/tool-result lines\",\"cwd/gitBranch/mtime/uuid populated\",\"malformed lines skipped\"],\"modelTier\":\"standard\"}\n```"
     },
     {
       "id": 5,
       "subject": "Task 5: Live agents source",
       "status": "pending",
-      "blockedBy": [2],
+      "blockedBy": [
+        2
+      ],
       "description": "**Goal:** Run `claude agents --json` behind an injectable Runner; parse {pid,cwd,kind,startedAt,sessionId} into []session.LiveInfo.\n\n**Files:** internal/sources/agents.go, internal/sources/agents_test.go\n\n**Verify:** `go test ./internal/sources/ -run TestAgents -v`\n\n```json:metadata\n{\"files\":[\"internal/sources/agents.go\",\"internal/sources/agents_test.go\"],\"verifyCommand\":\"go test ./internal/sources/ -run TestAgents -v\",\"acceptanceCriteria\":[\"parses agent fields incl StartedAt=UnixMilli\",\"empty output yields empty slice\",\"runner error propagates\",\"DefaultRunner returns ErrClaudeNotFound when absent\"],\"modelTier\":\"standard\"}\n```"
     },
     {
       "id": 6,
       "subject": "Task 6: Registry persistence",
       "status": "pending",
-      "blockedBy": [2],
-      "description": "**Goal:** Load/Save registry with atomic writes + corrupt recovery; Metas() → map[uuid]session.Meta; Update mutator stamps UpdatedAt.\n\n**Files:** internal/registry/registry.go, internal/registry/registry_test.go\n\n**Verify:** `go test ./internal/registry/ -v`\n\n```json:metadata\n{\"files\":[\"internal/registry/registry.go\",\"internal/registry/registry_test.go\"],\"verifyCommand\":\"go test ./internal/registry/ -v\",\"acceptanceCriteria\":[\"missing file → empty registry v1\",\"save/load round-trips, no tmp left\",\"corrupt file → empty + backup\",\"Update persists + stamps UpdatedAt\",\"DefaultPath honors XDG_STATE_HOME\"],\"modelTier\":\"standard\"}\n```"
+      "blockedBy": [
+        2
+      ],
+      "description": "**Goal:** Load/Save registry with atomic writes + corrupt recovery; Metas() \u2192 map[uuid]session.Meta; Update mutator stamps UpdatedAt.\n\n**Files:** internal/registry/registry.go, internal/registry/registry_test.go\n\n**Verify:** `go test ./internal/registry/ -v`\n\n```json:metadata\n{\"files\":[\"internal/registry/registry.go\",\"internal/registry/registry_test.go\"],\"verifyCommand\":\"go test ./internal/registry/ -v\",\"acceptanceCriteria\":[\"missing file \u2192 empty registry v1\",\"save/load round-trips, no tmp left\",\"corrupt file \u2192 empty + backup\",\"Update persists + stamps UpdatedAt\",\"DefaultPath honors XDG_STATE_HOME\"],\"modelTier\":\"standard\"}\n```"
     },
     {
       "id": 7,
-      "subject": "Task 7: TUI core — list, navigation, refresh",
+      "subject": "Task 7: TUI core \u2014 list, navigation, refresh",
       "status": "pending",
-      "blockedBy": [2, 6],
+      "blockedBy": [
+        2,
+        6
+      ],
       "description": "**Goal:** Bubble Tea Model rendering the fleet as a navigable scrolling list; archived toggle A; refresh r; quit q. Mode behaviors stubbed for later tasks.\n\n**Files:** internal/tui/keys.go, internal/tui/model.go, internal/tui/view.go, internal/tui/model_test.go (adds bubbletea/bubbles/lipgloss deps)\n\n**Verify:** `go test ./internal/tui/ -run 'TestNav|TestArchived|TestQuit' -v`\n\n```json:metadata\n{\"files\":[\"internal/tui/keys.go\",\"internal/tui/model.go\",\"internal/tui/view.go\",\"internal/tui/model_test.go\",\"go.mod\",\"go.sum\"],\"verifyCommand\":\"go test ./internal/tui/ -v\",\"acceptanceCriteria\":[\"Init loads fleet via fleetMsg\",\"archived hidden until A\",\"j/k move + scroll\",\"q returns tea.Quit\",\"View renders header/rows/footer\"],\"modelTier\":\"standard\"}\n```"
     },
     {
       "id": 8,
       "subject": "Task 8: Filter mode",
       "status": "pending",
-      "blockedBy": [7],
+      "blockedBy": [
+        7
+      ],
       "description": "**Goal:** / enters filter; fuzzy subsequence over name|project|firstmsg; enter keeps, esc clears. Replaces applyVisible/startFilter/updateFilter stubs; updates renderHeader.\n\n**Files:** internal/tui/model.go, internal/tui/view.go, internal/tui/filter_test.go\n\n**Verify:** `go test ./internal/tui/ -run TestFilter -v`\n\n```json:metadata\n{\"files\":[\"internal/tui/model.go\",\"internal/tui/view.go\",\"internal/tui/filter_test.go\"],\"verifyCommand\":\"go test ./internal/tui/ -run TestFilter -v\",\"acceptanceCriteria\":[\"non-empty filter narrows to subsequence matches\",\"esc clears, enter keeps + exits input\",\"header shows filter input\"],\"modelTier\":\"standard\"}\n```"
     },
     {
       "id": 9,
       "subject": "Task 9: Preview pane with debounced lazy load",
       "status": "pending",
-      "blockedBy": [7, 4],
+      "blockedBy": [
+        7,
+        4
+      ],
       "description": "**Goal:** Detail pane for selection; sources.LoadDetail extracts model/usage/last msgs; 150ms tea.Tick debounce; ignore stale ticks.\n\n**Files:** internal/session/session.go (Detail), internal/sources/detail.go, internal/sources/detail_test.go, internal/tui/model.go, internal/tui/view.go, internal/tui/preview_test.go\n\n**Verify:** `go test ./internal/sources/ -run TestLoadDetail -v && go test ./internal/tui/ -run TestPreview -v`\n\n```json:metadata\n{\"files\":[\"internal/session/session.go\",\"internal/sources/detail.go\",\"internal/sources/detail_test.go\",\"internal/tui/model.go\",\"internal/tui/view.go\",\"internal/tui/preview_test.go\"],\"verifyCommand\":\"go test ./internal/sources/ ./internal/tui/ -v\",\"acceptanceCriteria\":[\"LoadDetail extracts model/usage/last user+assistant\",\"cursor move schedules debounced load\",\"stale tick ignored\",\"preview renders for selection\"],\"modelTier\":\"standard\"}\n```"
     },
     {
       "id": 10,
-      "subject": "Task 10: Registry actions — rename, pin, archive",
+      "subject": "Task 10: Registry actions \u2014 rename, pin, archive",
       "status": "pending",
-      "blockedBy": [7, 6],
+      "blockedBy": [
+        7,
+        6
+      ],
       "description": "**Goal:** Wire n/p/a to mutate registry, persist atomically, refresh. Replaces startRename/updateRename/togglePin/toggleArchive stubs; rename prompt in header.\n\n**Files:** internal/tui/model.go, internal/tui/view.go, internal/tui/actions_test.go\n\n**Verify:** `go test ./internal/tui/ -run TestActions -v`\n\n```json:metadata\n{\"files\":[\"internal/tui/model.go\",\"internal/tui/view.go\",\"internal/tui/actions_test.go\"],\"verifyCommand\":\"go test ./internal/tui/ -run TestActions -v\",\"acceptanceCriteria\":[\"p toggles Pinned + persists\",\"a toggles Archived\",\"n prompt saves DisplayName, esc cancels\",\"mutation triggers reload\"],\"modelTier\":\"standard\"}\n```"
     },
     {
       "id": 11,
       "subject": "Task 11: Hand-off and open-in-editor",
       "status": "pending",
-      "blockedBy": [7],
+      "blockedBy": [
+        7
+      ],
       "description": "**Goal:** enter suspends TUI + runs `claude --resume <uuid>` via tea.ExecProcess (resume on exit); o opens transcript in $EDITOR. Replaces doHandoff/openEditor stubs; handoffDoneMsg case.\n\n**Files:** internal/tui/handoff.go, internal/tui/model.go, internal/tui/handoff_test.go\n\n**Verify:** `go test ./internal/tui/ -run TestHandoff -v`\n\n```json:metadata\n{\"files\":[\"internal/tui/handoff.go\",\"internal/tui/model.go\",\"internal/tui/handoff_test.go\"],\"verifyCommand\":\"go test ./internal/tui/ -run TestHandoff -v\",\"acceptanceCriteria\":[\"ExecHandoff.Run returns ExecProcess cmd or handoffDoneMsg{err} if claude absent\",\"enter invokes handoff with selected uuid\",\"refresh after process returns\",\"o runs $EDITOR (default vi)\"],\"modelTier\":\"standard\"}\n```"
     },
     {
       "id": 12,
       "subject": "Task 12: Live polling",
       "status": "pending",
-      "blockedBy": [7],
+      "blockedBy": [
+        7
+      ],
       "description": "**Goal:** Auto-refresh fleet every 3s. Replaces Init (batch refresh+ticker); adds tickMsg type + case + tickEvery.\n\n**Files:** internal/tui/model.go, internal/tui/poll_test.go\n\n**Verify:** `go test ./internal/tui/ -run TestPoll -v`\n\n```json:metadata\n{\"files\":[\"internal/tui/model.go\",\"internal/tui/poll_test.go\"],\"verifyCommand\":\"go test ./internal/tui/ -run TestPoll -v\",\"acceptanceCriteria\":[\"Init starts initial load + 3s ticker\",\"tickMsg refreshes and re-arms\"],\"modelTier\":\"standard\"}\n```"
     },
     {
       "id": 13,
       "subject": "Task 13: main wiring, error handling, README",
       "status": "pending",
-      "blockedBy": [4, 5, 9, 10, 11, 12],
-      "description": "**Goal:** Assemble sources+registry+TUI in main.go; degrade when claude missing or agents call fails; finalize README. Runnable binary.\n\n**Files:** cmd/cc-orchestra/main.go, internal/tui/model.go (WithBanner), README.md\n\n**Verify:** `go build ./... && go vet ./... && go test ./...` then `./bin/cc-orchestra` (manual).\n\n```json:metadata\n{\"files\":[\"cmd/cc-orchestra/main.go\",\"internal/tui/model.go\",\"README.md\"],\"verifyCommand\":\"go build ./... && go vet ./... && go test ./...\",\"acceptanceCriteria\":[\"launches TUI listing on-disk sessions\",\"claude-missing → transcripts + banner, no crash\",\"agents error → still renders from transcripts\",\"build/vet/test green\"],\"modelTier\":\"standard\"}\n```"
+      "blockedBy": [
+        4,
+        5,
+        9,
+        10,
+        11,
+        12
+      ],
+      "description": "**Goal:** Assemble sources+registry+TUI in main.go; degrade when claude missing or agents call fails; finalize README. Runnable binary.\n\n**Files:** cmd/cc-orchestra/main.go, internal/tui/model.go (WithBanner), README.md\n\n**Verify:** `go build ./... && go vet ./... && go test ./...` then `./bin/cc-orchestra` (manual).\n\n```json:metadata\n{\"files\":[\"cmd/cc-orchestra/main.go\",\"internal/tui/model.go\",\"README.md\"],\"verifyCommand\":\"go build ./... && go vet ./... && go test ./...\",\"acceptanceCriteria\":[\"launches TUI listing on-disk sessions\",\"claude-missing \u2192 transcripts + banner, no crash\",\"agents error \u2192 still renders from transcripts\",\"build/vet/test green\"],\"modelTier\":\"standard\"}\n```"
     }
   ]
 }
