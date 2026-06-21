@@ -51,7 +51,7 @@ func TestActionsPinAndRename(t *testing.T) {
 		m = out.(Model)
 	}
 	out, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = out.(Model)
+	_ = out
 	if reg.Sessions["a"].Name != "bot" {
 		t.Fatalf("rename not persisted, got %q", reg.Sessions["a"].Name)
 	}

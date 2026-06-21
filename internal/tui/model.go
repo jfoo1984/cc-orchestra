@@ -63,6 +63,12 @@ type Model struct {
 	quitting bool
 }
 
+// WithBanner returns a copy of the model with an initial footer banner set.
+func (m Model) WithBanner(s string) Model {
+	m.banner = s
+	return m
+}
+
 func New(loader Loader, reg *registry.Registry, handoff Handoff, now func() time.Time) Model {
 	fi := textinput.New()
 	fi.Placeholder = "filter…"
