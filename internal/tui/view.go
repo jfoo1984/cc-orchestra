@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 
@@ -13,6 +14,11 @@ var (
 	headerStyle   = lipgloss.NewStyle().Bold(true)
 	selectedStyle = lipgloss.NewStyle().Reverse(true)
 	dimStyle      = lipgloss.NewStyle().Faint(true)
+	previewBox    = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder(), true, false, false, false).
+			BorderForeground(lipgloss.Color("240")).
+			MarginTop(1).
+			PaddingTop(1)
 )
 
 func (m Model) View() string {
@@ -78,7 +84,43 @@ func (m Model) renderFooter() string {
 	return dimStyle.Render("j/k move · enter open · / filter · n rename · p pin · a archive · A archived · o editor · r refresh · q quit")
 }
 
-func (m Model) renderPreview() string { return "" } // implemented in Task 9
+func (m Model) renderPreview() string {
+	if m.preview == "" {
+		return ""
+	}
+	return previewBox.Render(m.preview)
+}
+
+func renderDetail(s session.Session, d session.Detail, now time.Time) string {
+	var b strings.Builder
+	b.WriteString(headerStyle.Render(s.Name()) + "\n")
+	loc := s.Cwd
+	if s.GitBranch != "" {
+		loc += "  (" + s.GitBranch + ")"
+	}
+	b.WriteString(dimStyle.Render(loc) + "\n")
+	b.WriteString(fmt.Sprintf("%s %s · %s · %s\n", s.Glyph(), s.StatusText(),
+		nz(d.Model, "model ?"), session.Age(s.LastActive, now)))
+	if d.Tokens.Total > 0 {
+		b.WriteString(dimStyle.Render(fmt.Sprintf("tokens: %d in / %d out\n", d.Tokens.Input, d.Tokens.Output)))
+	}
+	if d.LastUserMsg != "" {
+		b.WriteString("\n› " + truncTo(oneLine(d.LastUserMsg), 200) + "\n")
+	}
+	if d.LastAsstMsg != "" {
+		b.WriteString(truncTo(oneLine(d.LastAsstMsg), 200) + "\n")
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+func nz(s, fallback string) string {
+	if s == "" {
+		return fallback
+	}
+	return s
+}
+
+func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
 
 func truncTo(s string, n int) string {
 	r := []rune(s)

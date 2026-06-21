@@ -10,6 +10,7 @@ import (
 
 	"github.com/jfoo1984/cc-orchestra/internal/registry"
 	"github.com/jfoo1984/cc-orchestra/internal/session"
+	"github.com/jfoo1984/cc-orchestra/internal/sources"
 )
 
 // Loader returns the current merged fleet. Injected so the TUI can refresh.
@@ -25,6 +26,13 @@ type Handoff interface {
 type fleetMsg struct {
 	sessions []session.Session
 	err      error
+}
+
+type previewTickMsg struct{ uuid string }
+
+type detailMsg struct {
+	uuid   string
+	detail session.Detail
 }
 
 type Model struct {
@@ -87,6 +95,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.applyVisible()
 		}
 		return m, m.previewCmd()
+	case previewTickMsg:
+		s, ok := m.selected()
+		if !ok || s.UUID != msg.uuid || s.TranscriptPath == "" {
+			return m, nil // stale debounce or nothing to load
+		}
+		path, uuid := s.TranscriptPath, s.UUID
+		return m, func() tea.Msg {
+			d, _ := sources.LoadDetail(path)
+			return detailMsg{uuid: uuid, detail: d}
+		}
+	case detailMsg:
+		if cur, ok := m.selected(); ok && cur.UUID == msg.uuid {
+			m.preview = renderDetail(cur, msg.detail, m.now())
+			m.previewUUID = msg.uuid
+		}
+		return m, nil
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -220,7 +244,17 @@ func (m Model) listHeight() int {
 
 // --- Stubs filled in by later tasks (kept here so handleKey/View compile) ---
 
-func (m Model) previewCmd() tea.Cmd { return nil } // Task 9
+// previewCmd debounces a detail load for the current selection.
+func (m Model) previewCmd() tea.Cmd {
+	s, ok := m.selected()
+	if !ok {
+		return nil
+	}
+	uuid := s.UUID
+	return tea.Tick(150*time.Millisecond, func(time.Time) tea.Msg {
+		return previewTickMsg{uuid: uuid}
+	})
+}
 
 func (m Model) startFilter() (tea.Model, tea.Cmd) {
 	m.filtering = true

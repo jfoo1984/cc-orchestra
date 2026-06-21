@@ -26,6 +26,14 @@ type TokenUsage struct {
 	Total  int
 }
 
+// Detail holds lazily-loaded preview fields for a session.
+type Detail struct {
+	Model       string
+	Tokens      TokenUsage
+	LastUserMsg string
+	LastAsstMsg string
+}
+
 type Session struct {
 	UUID         string
 	Cwd          string
