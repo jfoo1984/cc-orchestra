@@ -91,7 +91,16 @@ func Merge(transcripts []TranscriptInfo, live []LiveInfo, meta map[string]Meta, 
 		if a.Status != b.Status {
 			return a.Status > b.Status
 		}
-		return a.LastActive.After(b.LastActive)
+		return effectiveActive(a).After(effectiveActive(b))
 	})
 	return out
+}
+
+// effectiveActive is LastActive, falling back to StartedAt for live-only
+// sessions that have no transcript mtime yet, so ordering stays deterministic.
+func effectiveActive(s Session) time.Time {
+	if s.LastActive.IsZero() {
+		return s.StartedAt
+	}
+	return s.LastActive
 }

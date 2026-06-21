@@ -50,4 +50,23 @@ func TestMerge(t *testing.T) {
 	if got[0].UUID != "u-cold" {
 		t.Errorf("pinned session should sort first, got %q", got[0].UUID)
 	}
+
+	wantOrder := []string{"u-cold", "u-fresh", "u-liveonly", "u-stale"}
+	if len(got) != len(wantOrder) {
+		t.Fatalf("got %d sessions, want %d", len(got), len(wantOrder))
+	}
+	for i, uuid := range wantOrder {
+		if got[i].UUID != uuid {
+			t.Errorf("sort order[%d] = %q, want %q", i, got[i].UUID, uuid)
+		}
+	}
+	if s := byUUID["u-fresh"]; !s.HasTranscript || !s.IsLive {
+		t.Errorf("u-fresh provenance: HasTranscript=%v IsLive=%v, want both true", s.HasTranscript, s.IsLive)
+	}
+	if s := byUUID["u-liveonly"]; s.HasTranscript || !s.IsLive {
+		t.Errorf("u-liveonly provenance: HasTranscript=%v IsLive=%v, want false/true", s.HasTranscript, s.IsLive)
+	}
+	if s := byUUID["u-cold"]; !s.HasTranscript || s.IsLive {
+		t.Errorf("u-cold provenance: HasTranscript=%v IsLive=%v, want true/false", s.HasTranscript, s.IsLive)
+	}
 }

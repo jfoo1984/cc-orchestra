@@ -61,3 +61,21 @@ func TestScanMissingRoot(t *testing.T) {
 		t.Fatalf("missing root: got (%v, %v), want (nil, nil)", got, err)
 	}
 }
+
+func TestScanCwdFallback(t *testing.T) {
+	root := t.TempDir()
+	// No line carries a cwd → fall back to the decoded project-dir name.
+	writeTranscript(t, root, "-home-me-zeta", "u-nocwd", []string{
+		`{"type":"user","message":{"role":"user","content":"hi"}}`,
+	})
+	got, err := Scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 transcript, got %d", len(got))
+	}
+	if got[0].Cwd != "/home/me/zeta" {
+		t.Fatalf("cwd fallback = %q, want /home/me/zeta", got[0].Cwd)
+	}
+}

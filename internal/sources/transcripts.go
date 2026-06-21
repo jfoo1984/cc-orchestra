@@ -100,6 +100,9 @@ func parseTranscript(path string) (*session.TranscriptInfo, error) {
 			break
 		}
 	}
+	if info.Cwd == "" {
+		info.Cwd = DecodeProjectDir(filepath.Base(filepath.Dir(path)))
+	}
 	return info, sc.Err()
 }
 
