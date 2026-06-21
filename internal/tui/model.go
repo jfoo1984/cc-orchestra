@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -140,12 +141,14 @@ func (m Model) refreshCmd() tea.Cmd {
 	}
 }
 
-// applyVisible recomputes the visible slice (archived filter; text filter is
-// added in Task 8) and clamps the cursor.
 func (m *Model) applyVisible() {
+	q := strings.ToLower(strings.TrimSpace(m.filterInput.Value()))
 	m.visible = m.visible[:0]
 	for _, s := range m.all {
 		if s.Archived && !m.showArchived {
+			continue
+		}
+		if q != "" && !match(q, s) {
 			continue
 		}
 		m.visible = append(m.visible, s)
@@ -157,6 +160,23 @@ func (m *Model) applyVisible() {
 		m.cursor = 0
 	}
 	m.adjustScroll()
+}
+
+// match reports whether the query fuzzily matches the session.
+func match(query string, s session.Session) bool {
+	hay := strings.ToLower(s.Name() + " " + s.Project + " " + s.FirstUserMsg)
+	return subsequence(query, hay)
+}
+
+func subsequence(needle, hay string) bool {
+	nr := []rune(needle)
+	i := 0
+	for _, c := range hay {
+		if i < len(nr) && nr[i] == c {
+			i++
+		}
+	}
+	return i == len(nr)
 }
 
 func (m Model) selected() (session.Session, bool) {
@@ -200,9 +220,36 @@ func (m Model) listHeight() int {
 
 // --- Stubs filled in by later tasks (kept here so handleKey/View compile) ---
 
-func (m Model) previewCmd() tea.Cmd                          { return nil }    // Task 9
-func (m Model) startFilter() (tea.Model, tea.Cmd)            { return m, nil } // Task 8
-func (m Model) updateFilter(tea.KeyMsg) (tea.Model, tea.Cmd) { return m, nil } // Task 8
+func (m Model) previewCmd() tea.Cmd { return nil } // Task 9
+
+func (m Model) startFilter() (tea.Model, tea.Cmd) {
+	m.filtering = true
+	m.filterInput.SetValue("")
+	cmd := m.filterInput.Focus()
+	m.applyVisible()
+	return m, cmd
+}
+
+func (m Model) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.filtering = false
+		m.filterInput.Blur()
+		m.filterInput.SetValue("")
+		m.applyVisible()
+		return m, nil
+	case "enter":
+		m.filtering = false
+		m.filterInput.Blur()
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.filterInput, cmd = m.filterInput.Update(msg)
+	m.cursor = 0
+	m.applyVisible()
+	return m, cmd
+}
+
 func (m Model) startRename() (tea.Model, tea.Cmd)            { return m, nil } // Task 10
 func (m Model) updateRename(tea.KeyMsg) (tea.Model, tea.Cmd) { return m, nil } // Task 10
 func (m Model) togglePin() (tea.Model, tea.Cmd)              { return m, nil } // Task 10

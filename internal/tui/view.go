@@ -33,8 +33,15 @@ func (m Model) View() string {
 }
 
 func (m Model) renderHeader() string {
-	return headerStyle.Render("cc-orchestra") + "  " +
-		dimStyle.Render(fmt.Sprintf("%d sessions", len(m.visible)))
+	left := headerStyle.Render("cc-orchestra")
+	if m.filtering {
+		return left + "  /" + m.filterInput.View()
+	}
+	count := dimStyle.Render(fmt.Sprintf("%d sessions", len(m.visible)))
+	if q := m.filterInput.Value(); q != "" {
+		count += dimStyle.Render("  filter: " + q)
+	}
+	return left + "  " + count
 }
 
 func (m Model) renderList() string {

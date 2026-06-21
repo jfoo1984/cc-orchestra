@@ -49,3 +49,13 @@ func TestQuit(t *testing.T) {
 		t.Fatal("q should return a command (tea.Quit)")
 	}
 }
+
+func tea_esc() tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyEsc} }
+
+func sessionsFixture() []session.Session {
+	return []session.Session{
+		{UUID: "a", Project: "alpha"},
+		{UUID: "b", Project: "beta"},
+		{UUID: "c", Project: "gamma"},
+	}
+}
