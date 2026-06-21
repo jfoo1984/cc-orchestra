@@ -46,12 +46,6 @@ type Session struct {
 	StartedAt  time.Time
 	LastActive time.Time
 
-	// Lazy preview fields (loaded on selection):
-	Model       string
-	Tokens      TokenUsage
-	LastUserMsg string
-	LastAsstMsg string
-
 	// Registry-derived metadata:
 	DisplayName string
 	Pinned      bool

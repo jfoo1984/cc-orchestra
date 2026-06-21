@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,5 +33,34 @@ func TestHandoffUsesSelectedUUID(t *testing.T) {
 	}
 	if fh.got != "u-2" {
 		t.Fatalf("handoff got %q, want u-2", fh.got)
+	}
+}
+
+// TestHandoffDoneMsgError verifies that an error handoffDoneMsg sets a "session error"
+// banner and returns a non-nil refresh cmd.
+func TestHandoffDoneMsgError(t *testing.T) {
+	m := loaded(sessionsFixture())
+	out, cmd := m.Update(handoffDoneMsg{err: errors.New("boom")})
+	m = out.(Model)
+	if !strings.Contains(m.banner, "session error") {
+		t.Fatalf("expected banner to contain \"session error\", got %q", m.banner)
+	}
+	if cmd == nil {
+		t.Fatal("expected non-nil refresh cmd after error handoffDoneMsg")
+	}
+}
+
+// TestHandoffDoneMsgSuccess verifies that a nil-error handoffDoneMsg clears the banner
+// and returns a non-nil refresh cmd.
+func TestHandoffDoneMsgSuccess(t *testing.T) {
+	m := loaded(sessionsFixture())
+	m.banner = "previous banner"
+	out, cmd := m.Update(handoffDoneMsg{})
+	m = out.(Model)
+	if m.banner != "" {
+		t.Fatalf("expected empty banner after successful handoffDoneMsg, got %q", m.banner)
+	}
+	if cmd == nil {
+		t.Fatal("expected non-nil refresh cmd after successful handoffDoneMsg")
 	}
 }

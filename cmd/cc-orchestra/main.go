@@ -26,6 +26,10 @@ func main() {
 }
 
 func run() error {
+	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+		fmt.Println("cc-orchestra", version)
+		os.Exit(0)
+	}
 	root, err := sources.ProjectsRoot()
 	if err != nil {
 		return fmt.Errorf("locate projects dir: %w", err)
@@ -59,7 +63,6 @@ func run() error {
 		m = m.WithBanner("claude not found on PATH — transcripts only; hand-off disabled")
 	}
 
-	_ = version
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	_, err = p.Run()
 	return err
