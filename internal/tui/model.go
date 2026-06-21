@@ -79,7 +79,15 @@ func New(loader Loader, reg *registry.Registry, handoff Handoff, now func() time
 	}
 }
 
-func (m Model) Init() tea.Cmd { return m.refreshCmd() }
+func (m Model) Init() tea.Cmd {
+	return tea.Batch(m.refreshCmd(), tickEvery())
+}
+
+type tickMsg time.Time
+
+func tickEvery() tea.Cmd {
+	return tea.Tick(3*time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
+}
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -117,6 +125,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.banner = "session error: " + msg.err.Error()
 		}
 		return m, m.refreshCmd()
+	case tickMsg:
+		return m, tea.Batch(m.refreshCmd(), tickEvery())
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
