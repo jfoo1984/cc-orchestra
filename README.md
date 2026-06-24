@@ -21,7 +21,3 @@ Run `cc-orchestra`. Keys:
 Sessions come from `~/.claude/projects/**/<uuid>.jsonl`; "running" status comes
 from `claude agents --json`; your names/pins/archives live in
 `~/.local/state/cc-orchestra/registry.json`.
-
-## Design
-
-See `docs/superpowers/specs/2026-06-20-cc-orchestra-design.md`.
